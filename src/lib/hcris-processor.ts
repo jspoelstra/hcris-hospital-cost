@@ -1,4 +1,6 @@
 import { HCRISRecord, ProviderMapping, YearStatistics } from './types';
+import JSZip from 'jszip';
+import Papa from 'papaparse';
 
 const TRIGGER_DATE = new Date('2025-07-03');
 const CMS_BASE_URL = 'https://www.cms.gov/data-research/statistics-trends-and-reports/cost-reports/cost-reports-fiscal-year';
@@ -41,57 +43,93 @@ export class HCRISProcessor {
   }
 
   async downloadYearData(year: number): Promise<HCRISRecord[]> {
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 400));
+    const zipUrls = this.getZipUrlsForYear(year);
+    const allRecords: HCRISRecord[] = [];
     
-    const recordCount = Math.floor(Math.random() * 5000) + 3000;
-    const records: HCRISRecord[] = [];
-    
-    for (let i = 0; i < recordCount; i++) {
-      const providerNum = String(10001 + Math.floor(Math.random() * 500)).padStart(6, '0');
-      const fiscalMonth = Math.floor(Math.random() * 12) + 1;
-      const fiscalDay = Math.floor(Math.random() * 28) + 1;
-      const nprMonth = Math.floor(Math.random() * 12) + 1;
-      const nprDay = Math.floor(Math.random() * 28) + 1;
-      const nprYear = year + Math.floor(Math.random() * 3);
-      
-      records.push({
-        providerNumber: providerNum,
-        providerName: this.providerMapping[providerNum] || `Hospital ${providerNum}`,
-        fiscalYearEnd: `${fiscalMonth}/${fiscalDay}/${year}`,
-        nprDate: `${nprMonth}/${nprDay}/${nprYear}`,
-        reportYear: year,
-        sourceFile: year >= 2010 ? `HOSP10FY${year}` : `HOSPFY${year}`,
-      });
+    for (const { url, filename } of zipUrls) {
+      try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to download ${filename}: ${response.status} ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(arrayBuffer);
+        
+        const rptFile = Object.keys(zipContent.files).find(name => name.toLowerCase().endsWith('_rpt.csv'));
+        
+        if (!rptFile) {
+          throw new Error(`No *_rpt.csv file found in ${filename}`);
+        }
+        
+        const csvContent = await zipContent.files[rptFile].async('string');
+        
+        const parsed = Papa.parse<string[]>(csvContent, {
+          skipEmptyLines: true,
+          header: false,
+        });
+        
+        for (const row of parsed.data) {
+          if (row.length < 16) {
+            continue;
+          }
+          
+          const providerNumber = row[0]?.trim();
+          const fiscalYearEnd = row[6]?.trim();
+          const nprDate = row[15]?.trim();
+          
+          if (!providerNumber || !fiscalYearEnd || !nprDate) {
+            continue;
+          }
+          
+          try {
+            const fiscalYear = new Date(fiscalYearEnd).getFullYear();
+            
+            if (isNaN(fiscalYear)) {
+              continue;
+            }
+            
+            allRecords.push({
+              providerNumber: providerNumber.padStart(6, '0'),
+              providerName: this.providerMapping[providerNumber] || `Hospital ${providerNumber}`,
+              fiscalYearEnd,
+              nprDate,
+              reportYear: fiscalYear,
+              sourceFile: filename.replace('.zip', ''),
+            });
+          } catch (e) {
+            continue;
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing ${filename}:`, error);
+        throw error;
+      }
     }
     
-    return records;
+    return allRecords;
   }
 
-  parseCSVLine(line: string): HCRISRecord | null {
-    const columns = line.split(',');
-    
-    if (columns.length < 16) {
-      return null;
+  private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
+    if (year >= 2010) {
+      const filename = `HOSP10FY${year}.zip`;
+      return [{
+        url: `https://www.cms.gov/files/zip/${filename.toLowerCase()}`,
+        filename,
+      }];
+    } else if (year >= 1996) {
+      const filename = `HOSPFY${year}.zip`;
+      return [{
+        url: `https://www.cms.gov/files/zip/${filename.toLowerCase()}`,
+        filename,
+      }];
+    } else {
+      return [];
     }
-    
-    const providerNumber = columns[0].trim();
-    const fiscalYearEnd = columns[6].trim();
-    const nprDate = columns[15].trim();
-    
-    if (!providerNumber || !fiscalYearEnd || !nprDate) {
-      return null;
-    }
-    
-    const fiscalYear = new Date(fiscalYearEnd).getFullYear();
-    
-    return {
-      providerNumber: providerNumber.padStart(6, '0'),
-      providerName: this.providerMapping[providerNumber] || `Hospital ${providerNumber}`,
-      fiscalYearEnd,
-      nprDate,
-      reportYear: fiscalYear,
-      sourceFile: `HOSP10FY${fiscalYear}`,
-    };
   }
 
   applyProviderMapping(records: HCRISRecord[]): HCRISRecord[] {
@@ -108,7 +146,7 @@ export class HCRISProcessor {
     const keyMap = new Map<string, HCRISRecord>();
     
     records.forEach(record => {
-      const key = `${record.providerNumber}_${record.fiscalYearEnd}_${record.nprDate}`;
+      const key = `${record.providerNumber}_${record.fiscalYearEnd}`;
       const existing = keyMap.get(key);
       
       if (!existing) {
