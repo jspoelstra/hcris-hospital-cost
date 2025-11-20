@@ -149,6 +149,23 @@ export class HCRISProcessor {
       .sort((a, b) => new Date(b.nprDate).getTime() - new Date(a.nprDate).getTime());
   }
 
+  getSampleByYear(year: number, limit: number = 10): HCRISRecord[] {
+    return this.masterData
+      .filter(record => record.reportYear === year)
+      .slice(0, limit);
+  }
+
+  filterByYearRange(startYear: number, endYear: number): HCRISRecord[] {
+    return this.masterData.filter(
+      record => record.reportYear >= startYear && record.reportYear <= endYear
+    );
+  }
+
+  getAvailableYears(): number[] {
+    const years = new Set(this.masterData.map(r => r.reportYear));
+    return Array.from(years).sort((a, b) => a - b);
+  }
+
   exportToCSV(records: HCRISRecord[]): string {
     const headers = ['Provider Number', 'Provider Name', 'Fiscal Year End', 'NPR Date', 'Report Year', 'Source File'];
     const rows = records.map(r => [

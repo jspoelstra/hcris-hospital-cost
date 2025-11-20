@@ -11,6 +11,8 @@ import { ProgressDashboard } from '@/components/ProgressDashboard';
 import { StatisticsTable } from '@/components/StatisticsTable';
 import { ProviderSearch } from '@/components/ProviderSearch';
 import { LogViewer } from '@/components/LogViewer';
+import { YearSampleViewer } from '@/components/YearSampleViewer';
+import { YearRangeExport } from '@/components/YearRangeExport';
 import { HCRISProcessor } from '@/lib/hcris-processor';
 import { ProcessingPhase, LogEntry, YearStatistics, HCRISRecord } from '@/lib/types';
 
@@ -183,6 +185,30 @@ function App() {
     return processor.searchByProvider(providerNumber);
   };
 
+  const handleViewSample = (year: number): HCRISRecord[] => {
+    if (!masterData) return [];
+    processor.setMasterData(masterData);
+    return processor.getSampleByYear(year, 10);
+  };
+
+  const handleExportYearRange = (startYear: number, endYear: number) => {
+    if (!masterData) return;
+    processor.setMasterData(masterData);
+    const filtered = processor.filterByYearRange(startYear, endYear);
+    const csv = processor.exportToCSV(filtered);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hcris_${startYear}-${endYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Year range exported successfully`, {
+      description: `${filtered.length.toLocaleString()} records from ${startYear} to ${endYear}`,
+    });
+  };
+
   const handleExportProvider = (records: HCRISRecord[]) => {
     const csv = processor.exportToCSV(records);
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -195,6 +221,13 @@ function App() {
     
     toast.success('Provider data exported to CSV');
   };
+
+  const availableYears = masterData && masterData.length > 0 
+    ? (() => {
+        processor.setMasterData(masterData);
+        return processor.getAvailableYears();
+      })()
+    : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -266,8 +299,10 @@ function App() {
         )}
 
         <Tabs defaultValue="search" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="search">Provider Search</TabsTrigger>
+            <TabsTrigger value="sample">Year Sample</TabsTrigger>
+            <TabsTrigger value="export">Export Range</TabsTrigger>
             <TabsTrigger value="statistics">Statistics</TabsTrigger>
           </TabsList>
 
@@ -275,6 +310,21 @@ function App() {
             <ProviderSearch
               onSearch={handleSearchProvider}
               onExport={handleExportProvider}
+            />
+          </TabsContent>
+
+          <TabsContent value="sample" className="space-y-6">
+            <YearSampleViewer
+              onViewSample={handleViewSample}
+              availableYears={availableYears}
+            />
+          </TabsContent>
+
+          <TabsContent value="export" className="space-y-6">
+            <YearRangeExport
+              onExport={handleExportYearRange}
+              availableYears={availableYears}
+              totalRecords={masterData?.length || 0}
             />
           </TabsContent>
 
