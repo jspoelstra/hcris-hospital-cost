@@ -126,21 +126,32 @@ export class HCRISProcessor {
 
   private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
     const baseUrl = 'https://downloads.cms.gov/Files/hcris/';
+    const urls: Array<{ url: string; filename: string }> = [];
     
-    return [
-      {
-        url: `${baseUrl}HOSP10FY${year}.zip`,
-        filename: `HOSP10FY${year}`,
-      },
-      {
+    if (year <= 2009) {
+      urls.push({
         url: `${baseUrl}HOSPFY${year}.zip`,
         filename: `HOSPFY${year}`,
-      },
-      {
-        url: `${baseUrl}HOSP2010FY${year}.zip`,
-        filename: `HOSP2010FY${year}`,
-      },
-    ];
+      });
+    } else if (year === 2010 || year === 2011) {
+      urls.push(
+        {
+          url: `${baseUrl}HOSP10FY${year}.zip`,
+          filename: `HOSP10FY${year}`,
+        },
+        {
+          url: `${baseUrl}HOSPFY${year}.zip`,
+          filename: `HOSPFY${year}`,
+        }
+      );
+    } else {
+      urls.push({
+        url: `${baseUrl}HOSP10FY${year}.zip`,
+        filename: `HOSP10FY${year}`,
+      });
+    }
+    
+    return urls;
   }
 
   applyProviderMapping(records: HCRISRecord[]): HCRISRecord[] {
