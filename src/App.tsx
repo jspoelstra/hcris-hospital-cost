@@ -125,7 +125,12 @@ function App() {
           
           addLog('success', `Year ${year}: ${yearRecords.length.toLocaleString()} records processed`);
         } catch (error) {
-          addLog('error', `Failed to process year ${year}: ${error}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes('404')) {
+            addLog('error', `Year ${year}: All download URLs returned 404 - data may not be available yet`);
+          } else {
+            addLog('error', `Failed to process year ${year}: ${errorMessage}`);
+          }
         }
       }
       

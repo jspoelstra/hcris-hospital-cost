@@ -51,7 +51,8 @@ export class HCRISProcessor {
         const response = await fetch(url);
         
         if (!response.ok) {
-          throw new Error(`Failed to download ${filename}: ${response.status} ${response.statusText}`);
+          console.warn(`URL not found: ${url} (${response.status}), trying next version...`);
+          continue;
         }
         
         const blob = await response.blob();
@@ -60,10 +61,13 @@ export class HCRISProcessor {
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(arrayBuffer);
         
-        const rptFile = Object.keys(zipContent.files).find(name => name.toLowerCase().endsWith('_rpt.csv'));
+        const rptFile = Object.keys(zipContent.files).find(name => 
+          name.toLowerCase().includes('_rpt.csv')
+        );
         
         if (!rptFile) {
-          throw new Error(`No *_rpt.csv file found in ${filename}`);
+          console.warn(`No *_RPT.CSV file found in ${filename}, trying next version...`);
+          continue;
         }
         
         const csvContent = await zipContent.files[rptFile].async('string');
@@ -73,12 +77,15 @@ export class HCRISProcessor {
           header: false,
         });
         
-        for (const row of parsed.data) {
+        for (let i = 1; i < parsed.data.length; i++) {
+          const row = parsed.data[i];
+          
           if (row.length < 16) {
             continue;
           }
           
           const providerNumber = row[0]?.trim();
+          const providerName = row[1]?.trim();
           const fiscalYearEnd = row[6]?.trim();
           const nprDate = row[15]?.trim();
           
@@ -95,37 +102,41 @@ export class HCRISProcessor {
             
             allRecords.push({
               providerNumber: providerNumber.padStart(6, '0'),
-              providerName: this.providerMapping[providerNumber] || `Hospital ${providerNumber}`,
+              providerName: providerName || this.providerMapping[providerNumber] || `Hospital ${providerNumber}`,
               fiscalYearEnd,
               nprDate,
               reportYear: fiscalYear,
-              sourceFile: filename.replace('.zip', ''),
+              sourceFile: filename,
             });
           } catch (e) {
             continue;
           }
         }
+        
+        return allRecords;
+        
       } catch (error) {
-        console.error(`Error processing ${filename}:`, error);
-        throw error;
+        console.warn(`Failed to process ${filename}:`, error);
+        continue;
       }
     }
     
-    return allRecords;
+    throw new Error(`Failed to download data for year ${year} - all URL versions returned 404 or failed`);
   }
 
   private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
+    const baseUrl = 'https://downloads.cms.gov/files/';
+    
     if (year >= 2010) {
-      const filename = `HOSP10FY${year}.zip`;
-      return [{
-        url: `https://www.cms.gov/files/zip/${filename.toLowerCase()}`,
-        filename,
-      }];
+      const versions = ['v10', 'v2', 'v1'];
+      return versions.map(version => ({
+        url: `${baseUrl}hosp2010_${year}_${version}_CSV.zip`,
+        filename: `HOSP2010_${year}_${version}`,
+      }));
     } else if (year >= 1996) {
-      const filename = `HOSPFY${year}.zip`;
       return [{
-        url: `https://www.cms.gov/files/zip/${filename.toLowerCase()}`,
-        filename,
+        url: `${baseUrl}hosp_${year}_v10_CSV.zip`,
+        filename: `HOSP_${year}_v10`,
       }];
     } else {
       return [];
