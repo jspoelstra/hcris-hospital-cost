@@ -13,11 +13,11 @@ A professional web application that replaces 2-3 hours of daily manual data proc
 ## Essential Features
 
 ### 1. One-Click Data Rebuild
-- **Functionality**: Single button initiates full CMS HCRIS data crawl, download, parse, and rebuild
-- **Purpose**: Eliminate 2-3 hour manual process; ensure data freshness
-- **Trigger**: User clicks "Check for New Data & Rebuild Master"
-- **Progression**: Click button → Detect update need (NPR > July 3, 2025) → Crawl CMS pages → Download all hospital ZIPs → Extract _rpt.csv files → Apply provider name mapping → Deduplicate → Generate master files → Show completion
-- **Success criteria**: Process completes in < 10 minutes with downloadable parquet/Excel outputs
+- **Functionality**: Single button initiates full CMS HCRIS data crawl, download, parse, and rebuild with optional year range filtering
+- **Purpose**: Eliminate 2-3 hour manual process; ensure data freshness; allow targeted testing with year filters
+- **Trigger**: User clicks "Check for New Data & Rebuild Master" with optional start/end year specified
+- **Progression**: (Optional: Set year range filter) → Click button → Detect update need (NPR > July 3, 2025) → Crawl CMS pages (filtered by year range if specified) → Download hospital ZIPs for selected years → Extract _rpt.csv files → Parse columns (col 1: Provider Number, col 7: Fiscal Year End, col 16: NPR Date) → Apply provider name mapping → Deduplicate → Generate master files → Show completion
+- **Success criteria**: Process completes in < 10 minutes with downloadable parquet/Excel outputs; year filter correctly limits data download scope
 
 ### 2. Real-Time Progress Dashboard
 - **Functionality**: Live visual feedback for every processing phase with progress bars, status indicators, and timing
@@ -64,11 +64,12 @@ A professional web application that replaces 2-3 hours of daily manual data proc
 ## Edge Case Handling
 
 - **Download Failures**: Retry 3 times with exponential backoff; log failed years; continue processing others
-- **Malformed CSV**: Skip invalid rows; log parsing errors; display warning count in statistics
+- **Malformed CSV**: Skip invalid rows; log parsing errors; display warning count in statistics; verify column positions (1, 7, 16)
 - **Missing Provider Mapping**: Retain original name from column 2; flag as unmapped; log CCN for review
 - **Large Files**: Use streaming/chunked processing to avoid browser memory limits
 - **Network Timeouts**: Show clear error message; allow manual retry without losing progress
 - **Duplicate Keys**: Apply deduplication rule (newest NPR date wins); log duplicates removed
+- **Year Range Filter**: Validate year inputs (1995-current); handle empty/partial ranges; clear feedback on applied filters
 
 ## Design Direction
 

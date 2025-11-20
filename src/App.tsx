@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Toaster } from '@/components/ui/sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ArrowClockwise, Database, CheckCircle } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { ProgressDashboard } from '@/components/ProgressDashboard';
@@ -22,6 +24,8 @@ function App() {
   const [lastUpdateDate, setLastUpdateDate] = useKV<string>('hcris-last-update', '');
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [rebuildStartYear, setRebuildStartYear] = useState<string>('');
+  const [rebuildEndYear, setRebuildEndYear] = useState<string>('');
   const [phases, setPhases] = useState<ProcessingPhase[]>([
     { id: 'check', label: 'Check for Updates', status: 'pending', progress: 0 },
     { id: 'mapping', label: 'Download Provider Mapping', status: 'pending', progress: 0 },
@@ -83,8 +87,17 @@ function App() {
       addLog('success', 'Provider mapping downloaded successfully');
 
       updatePhase('crawl', { status: 'active', progress: 50 });
-      addLog('info', 'Crawling year list from CMS website...');
-      const years = await processor.crawlYearList();
+      
+      const startYear = rebuildStartYear ? parseInt(rebuildStartYear) : undefined;
+      const endYear = rebuildEndYear ? parseInt(rebuildEndYear) : undefined;
+      
+      if (startYear || endYear) {
+        addLog('info', `Crawling year list with filter: ${startYear || '1995'} - ${endYear || 'current'}`);
+      } else {
+        addLog('info', 'Crawling year list from CMS website...');
+      }
+      
+      const years = await processor.crawlYearList(startYear, endYear);
       updatePhase('crawl', { status: 'complete', progress: 100 });
       addLog('success', `Found ${years.length} years to process (${years[0]} - ${years[years.length - 1]})`);
 
@@ -244,32 +257,85 @@ function App() {
         </header>
 
         <Card className="p-4 md:p-6 mb-6 md:mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg md:text-xl font-semibold mb-2">Data Management</h2>
-              <p className="text-sm text-muted-foreground">
-                {lastUpdateDate ? (
-                  <>Last updated: {new Date(lastUpdateDate).toLocaleString()}</>
-                ) : (
-                  <>No data loaded yet</>
-                )}
-              </p>
-              {masterData && masterData.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg md:text-xl font-semibold mb-2">Data Management</h2>
                 <p className="text-sm text-muted-foreground">
-                  {masterData.length.toLocaleString()} records in master dataset
+                  {lastUpdateDate ? (
+                    <>Last updated: {new Date(lastUpdateDate).toLocaleString()}</>
+                  ) : (
+                    <>No data loaded yet</>
+                  )}
                 </p>
-              )}
+                {masterData && masterData.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {masterData.length.toLocaleString()} records in master dataset
+                  </p>
+                )}
+              </div>
+              <Button
+                onClick={handleRebuild}
+                disabled={isProcessing}
+                size="lg"
+                className="gap-2 w-full md:w-auto"
+              >
+                <ArrowClockwise className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} weight="bold" />
+                <span className="hidden md:inline">{isProcessing ? 'Processing...' : 'Check for New Data & Rebuild Master'}</span>
+                <span className="md:hidden">{isProcessing ? 'Processing...' : 'Rebuild Data'}</span>
+              </Button>
             </div>
-            <Button
-              onClick={handleRebuild}
-              disabled={isProcessing}
-              size="lg"
-              className="gap-2 w-full md:w-auto"
-            >
-              <ArrowClockwise className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} weight="bold" />
-              <span className="hidden md:inline">{isProcessing ? 'Processing...' : 'Check for New Data & Rebuild Master'}</span>
-              <span className="md:hidden">{isProcessing ? 'Processing...' : 'Rebuild Data'}</span>
-            </Button>
+            
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-3 block">Year Range Filter (Optional - for testing)</Label>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="start-year" className="text-xs text-muted-foreground mb-1 block">Start Year</Label>
+                  <Input
+                    id="start-year"
+                    type="number"
+                    placeholder="1995"
+                    value={rebuildStartYear}
+                    onChange={(e) => setRebuildStartYear(e.target.value)}
+                    disabled={isProcessing}
+                    min="1995"
+                    max={new Date().getFullYear()}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="end-year" className="text-xs text-muted-foreground mb-1 block">End Year</Label>
+                  <Input
+                    id="end-year"
+                    type="number"
+                    placeholder={new Date().getFullYear().toString()}
+                    value={rebuildEndYear}
+                    onChange={(e) => setRebuildEndYear(e.target.value)}
+                    disabled={isProcessing}
+                    min="1995"
+                    max={new Date().getFullYear()}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => {
+                      setRebuildStartYear('');
+                      setRebuildEndYear('');
+                    }}
+                    disabled={isProcessing || (!rebuildStartYear && !rebuildEndYear)}
+                    className="w-full sm:w-auto"
+                  >
+                    Clear Filter
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Leave empty to process all available years (1995 - {new Date().getFullYear()})
+              </p>
+            </div>
           </div>
         </Card>
 

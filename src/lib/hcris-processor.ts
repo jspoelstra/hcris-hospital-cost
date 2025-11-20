@@ -26,12 +26,15 @@ export class HCRISProcessor {
     };
   }
 
-  async crawlYearList(): Promise<number[]> {
+  async crawlYearList(startYear?: number, endYear?: number): Promise<number[]> {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     const currentYear = new Date().getFullYear();
+    const start = startYear || 1995;
+    const end = endYear || currentYear;
+    
     const years: number[] = [];
-    for (let year = 1995; year <= currentYear; year++) {
+    for (let year = start; year <= end; year++) {
       years.push(year);
     }
     return years;
@@ -62,6 +65,33 @@ export class HCRISProcessor {
     }
     
     return records;
+  }
+
+  parseCSVLine(line: string): HCRISRecord | null {
+    const columns = line.split(',');
+    
+    if (columns.length < 16) {
+      return null;
+    }
+    
+    const providerNumber = columns[0].trim();
+    const fiscalYearEnd = columns[6].trim();
+    const nprDate = columns[15].trim();
+    
+    if (!providerNumber || !fiscalYearEnd || !nprDate) {
+      return null;
+    }
+    
+    const fiscalYear = new Date(fiscalYearEnd).getFullYear();
+    
+    return {
+      providerNumber: providerNumber.padStart(6, '0'),
+      providerName: this.providerMapping[providerNumber] || `Hospital ${providerNumber}`,
+      fiscalYearEnd,
+      nprDate,
+      reportYear: fiscalYear,
+      sourceFile: `HOSP10FY${fiscalYear}`,
+    };
   }
 
   applyProviderMapping(records: HCRISRecord[]): HCRISRecord[] {
