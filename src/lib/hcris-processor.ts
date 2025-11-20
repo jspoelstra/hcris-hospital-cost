@@ -125,22 +125,12 @@ export class HCRISProcessor {
   }
 
   private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
-    const baseUrl = 'https://downloads.cms.gov/files/';
+    const baseUrl = 'https://downloads.cms.gov/Files/hcris/';
     
-    if (year >= 2010) {
-      const versions = ['v10', 'v2', 'v1'];
-      return versions.map(version => ({
-        url: `${baseUrl}hosp2010_${year}_${version}_CSV.zip`,
-        filename: `HOSP2010_${year}_${version}`,
-      }));
-    } else if (year >= 1996) {
-      return [{
-        url: `${baseUrl}hosp_${year}_v10_CSV.zip`,
-        filename: `HOSP_${year}_v10`,
-      }];
-    } else {
-      return [];
-    }
+    return [{
+      url: `${baseUrl}HOSPFY${year}.zip`,
+      filename: `HOSPFY${year}`,
+    }];
   }
 
   applyProviderMapping(records: HCRISRecord[]): HCRISRecord[] {
