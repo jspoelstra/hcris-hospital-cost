@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MagnifyingGlass, DownloadSimple } from '@phosphor-icons/react';
+import { Badge } from '@/components/ui/badge';
 import { HCRISRecord } from '@/lib/types';
 
 interface ProviderSearchProps {
@@ -15,30 +16,33 @@ interface ProviderSearchProps {
 }
 
 export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
-  const [providerNumber, setProviderNumber] = useState('');
+  const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState<HCRISRecord[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchedProviders, setSearchedProviders] = useState<string[]>([]);
 
-  const handleSearch = () => {
-    if (providerNumber.length === 6 && /^\d{6}$/.test(providerNumber)) {
-      const searchResults = onSearch(providerNumber);
-      setResults(searchResults);
-      setHasSearched(true);
-    }
+  const parseProviderNumbers = (input: string): string[] => {
+    const parts = input.split(',').map(p => p.trim()).filter(p => p.length > 0);
+    const validProviders = parts.filter(p => /^\d{6}$/.test(p));
+    return validProviders;
   };
 
-  const handleInputChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '').slice(0, 6);
-    setProviderNumber(cleaned);
+  const handleSearch = () => {
+    const providers = parseProviderNumbers(inputValue);
     
-    if (cleaned.length === 6) {
-      const searchResults = onSearch(cleaned);
-      setResults(searchResults);
-      setHasSearched(true);
-    } else {
-      setHasSearched(false);
-      setResults([]);
+    if (providers.length === 0) {
+      return;
     }
+
+    const allResults: HCRISRecord[] = [];
+    for (const providerNum of providers) {
+      const searchResults = onSearch(providerNum);
+      allResults.push(...searchResults);
+    }
+    
+    setResults(allResults);
+    setSearchedProviders(providers);
+    setHasSearched(true);
   };
 
   const handleExport = () => {
@@ -47,34 +51,43 @@ export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
     }
   };
 
+  const isSearchValid = parseProviderNumbers(inputValue).length > 0;
+
   return (
     <Card className="p-4 md:p-6">
       <h2 className="text-xl md:text-2xl font-semibold mb-6">Provider Search</h2>
 
       <div className="space-y-4 mb-6">
         <div className="space-y-2">
-          <Label htmlFor="provider-search">Provider Number (6 digits)</Label>
+          <Label htmlFor="provider-search">Provider Number(s)</Label>
           <div className="flex gap-2">
             <Input
               id="provider-search"
               type="text"
-              placeholder="010001"
-              value={providerNumber}
-              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder="010001, 010002, 010003"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               className="font-mono text-lg"
-              maxLength={6}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && isSearchValid) {
+                  handleSearch();
+                }
+              }}
             />
-            <Button onClick={handleSearch} disabled={providerNumber.length !== 6} size="icon">
+            <Button onClick={handleSearch} disabled={!isSearchValid} size="icon">
               <MagnifyingGlass className="w-5 h-5" />
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Enter one or more 6-digit provider numbers separated by commas
+          </p>
         </div>
       </div>
 
       {hasSearched && results.length === 0 && (
         <Alert>
           <AlertDescription>
-            No records found for provider number {providerNumber}
+            No records found for provider number{searchedProviders.length > 1 ? 's' : ''}: {searchedProviders.join(', ')}
           </AlertDescription>
         </Alert>
       )}
@@ -82,9 +95,18 @@ export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
       {results.length > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Found {results.length} record{results.length !== 1 ? 's' : ''} for provider {providerNumber}
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">
+                Found {results.length} record{results.length !== 1 ? 's' : ''} for {searchedProviders.length} provider{searchedProviders.length !== 1 ? 's' : ''}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {searchedProviders.map(provider => (
+                  <Badge key={provider} variant="secondary" className="font-mono">
+                    {provider}
+                  </Badge>
+                ))}
+              </div>
+            </div>
             <Button onClick={handleExport} variant="outline" size="sm">
               <DownloadSimple className="w-4 h-4 mr-2" />
               Export to Excel
