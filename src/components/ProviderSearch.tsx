@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MagnifyingGlass, DownloadSimple } from '@phosphor-icons/react';
+import { MagnifyingGlass, DownloadSimple, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { Badge } from '@/components/ui/badge';
 import { HCRISRecord } from '@/lib/types';
 import { ProviderGroupManager } from './ProviderGroupManager';
@@ -16,17 +16,49 @@ interface ProviderSearchProps {
   onExport: (records: HCRISRecord[]) => void;
 }
 
+type SortField = 'providerNumber' | 'providerName' | 'fiscalYearEnd' | 'nprDate' | 'reportYear' | 'sourceFile';
+type SortDirection = 'asc' | 'desc';
+
 export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
   const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState<HCRISRecord[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchedProviders, setSearchedProviders] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<SortField>('reportYear');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const parseProviderNumbers = (input: string): string[] => {
     const parts = input.split(',').map(p => p.trim()).filter(p => p.length > 0);
     const validProviders = parts.filter(p => /^\d{6}$/.test(p));
     return validProviders;
   };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedResults = useMemo(() => {
+    if (results.length === 0) return results;
+
+    const sorted = [...results].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (aValue === bValue) return 0;
+
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      return sortDirection === 'asc' ? 1 : -1;
+    });
+
+    return sorted;
+  }, [results, sortField, sortDirection]);
 
   const performSearch = (providers: string[]) => {
     if (providers.length === 0) {
@@ -61,6 +93,27 @@ export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
   };
 
   const isSearchValid = parseProviderNumbers(inputValue).length > 0;
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <TableHead 
+      className="font-semibold cursor-pointer hover:bg-muted/50 transition-colors select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <div className="flex flex-col ml-1">
+          <CaretUp 
+            weight={sortField === field && sortDirection === 'asc' ? 'fill' : 'regular'}
+            className={`w-3 h-3 -mb-1 ${sortField === field && sortDirection === 'asc' ? 'text-primary' : 'text-muted-foreground'}`}
+          />
+          <CaretDown 
+            weight={sortField === field && sortDirection === 'desc' ? 'fill' : 'regular'}
+            className={`w-3 h-3 ${sortField === field && sortDirection === 'desc' ? 'text-primary' : 'text-muted-foreground'}`}
+          />
+        </div>
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6">
@@ -131,16 +184,16 @@ export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="font-semibold">Provider #</TableHead>
-                        <TableHead className="font-semibold">Provider Name</TableHead>
-                        <TableHead className="font-semibold">Fiscal Year End</TableHead>
-                        <TableHead className="font-semibold">NPR Date</TableHead>
-                        <TableHead className="font-semibold">Report Year</TableHead>
-                        <TableHead className="font-semibold">Source File</TableHead>
+                        <SortableHeader field="providerNumber">Provider #</SortableHeader>
+                        <SortableHeader field="providerName">Provider Name</SortableHeader>
+                        <SortableHeader field="fiscalYearEnd">Fiscal Year End</SortableHeader>
+                        <SortableHeader field="nprDate">NPR Date</SortableHeader>
+                        <SortableHeader field="reportYear">Report Year</SortableHeader>
+                        <SortableHeader field="sourceFile">Source File</SortableHeader>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.map((record, idx) => (
+                      {sortedResults.map((record, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="font-mono">{record.providerNumber}</TableCell>
                           <TableCell className="font-medium">{record.providerName}</TableCell>
