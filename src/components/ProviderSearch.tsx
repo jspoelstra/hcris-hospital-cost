@@ -184,16 +184,16 @@ export function ProviderSearch({ onSearch, onExport }: ProviderSearchProps) {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="font-semibold">Provider #</TableHead>
-                        <TableHead className="font-semibold">Provider Name</TableHead>
-                        <TableHead className="font-semibold">Fiscal Year End</TableHead>
-                        <TableHead className="font-semibold">NPR Date</TableHead>
-                        <TableHead className="font-semibold">Report Year</TableHead>
-                        <TableHead className="font-semibold">Source File</TableHead>
+                        <SortableHeader field="providerNumber">Provider #</SortableHeader>
+                        <SortableHeader field="providerName">Provider Name</SortableHeader>
+                        <SortableHeader field="fiscalYearEnd">Fiscal Year End</SortableHeader>
+                        <SortableHeader field="nprDate">NPR Date</SortableHeader>
+                        <SortableHeader field="reportYear">Report Year</SortableHeader>
+                        <SortableHeader field="sourceFile">Source File</SortableHeader>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {results.map((record, idx) => (
+                      {sortedResults.map((record, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="font-mono">{record.providerNumber}</TableCell>
                           <TableCell className="font-medium">{record.providerName}</TableCell>
