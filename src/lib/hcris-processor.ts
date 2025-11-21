@@ -91,7 +91,7 @@ export class HCRISProcessor {
             continue;
           }
           
-          const providerNumber = row[0]?.trim();
+          const providerNumber = row[2]?.trim();
           const providerName = row[1]?.trim();
           const fiscalYearEnd = row[6]?.trim();
           const nprDate = row[15]?.trim();
