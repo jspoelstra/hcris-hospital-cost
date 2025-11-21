@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowClockwise, Database, CheckCircle } from '@phosphor-icons/react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { ProgressDashboard } from '@/components/ProgressDashboard';
 import { StatisticsTable } from '@/components/StatisticsTable';
@@ -26,6 +27,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [rebuildStartYear, setRebuildStartYear] = useState<string>('');
   const [rebuildEndYear, setRebuildEndYear] = useState<string>('');
+  const [skipDedupe, setSkipDedupe] = useState(false);
   const [phases, setPhases] = useState<ProcessingPhase[]>([
     { id: 'check', label: 'Check for Updates', status: 'pending', progress: 0 },
     { id: 'mapping', label: 'Download Provider Mapping', status: 'pending', progress: 0 },
@@ -137,20 +139,28 @@ function App() {
       updatePhase('download', { status: 'complete', progress: 100 });
       addLog('success', `Downloaded ${allRecords.length.toLocaleString()} total records`);
 
-      updatePhase('dedupe', { status: 'active', progress: 50 });
-      addLog('info', 'Deduplicating records...');
-      const deduped = processor.deduplicateRecords(allRecords);
-      const duplicatesRemoved = allRecords.length - deduped.length;
-      updatePhase('dedupe', { status: 'complete', progress: 100 });
-      addLog('success', `Removed ${duplicatesRemoved.toLocaleString()} duplicate records`);
+      let finalRecords: HCRISRecord[];
+      
+      if (skipDedupe) {
+        updatePhase('dedupe', { status: 'complete', progress: 100 });
+        addLog('info', 'Skipping deduplication step');
+        finalRecords = allRecords;
+      } else {
+        updatePhase('dedupe', { status: 'active', progress: 50 });
+        addLog('info', 'Deduplicating records...');
+        finalRecords = processor.deduplicateRecords(allRecords);
+        const duplicatesRemoved = allRecords.length - finalRecords.length;
+        updatePhase('dedupe', { status: 'complete', progress: 100 });
+        addLog('success', `Removed ${duplicatesRemoved.toLocaleString()} duplicate records`);
+      }
 
       updatePhase('finalize', { status: 'active', progress: 50 });
       addLog('info', 'Generating statistics and saving master data...');
       
-      processor.setMasterData(deduped);
-      const stats = processor.calculateStatistics(deduped);
+      processor.setMasterData(finalRecords);
+      const stats = processor.calculateStatistics(finalRecords);
       
-      setMasterData(deduped);
+      setMasterData(finalRecords);
       setStatistics(stats);
       setLastUpdateDate(new Date().toISOString());
       
@@ -158,7 +168,7 @@ function App() {
       addLog('success', 'Master data saved successfully');
       
       toast.success('Data rebuild completed successfully!', {
-        description: `Processed ${deduped.length.toLocaleString()} records from ${years.length} years`,
+        description: `Processed ${finalRecords.length.toLocaleString()} records from ${years.length} years`,
       });
       
     } catch (error) {
@@ -339,6 +349,26 @@ function App() {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Leave empty to process all available years (1995 - {new Date().getFullYear()})
+              </p>
+            </div>
+            
+            <div className="border-t pt-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="skip-dedupe"
+                  checked={skipDedupe}
+                  onCheckedChange={(checked) => setSkipDedupe(checked === true)}
+                  disabled={isProcessing}
+                />
+                <Label
+                  htmlFor="skip-dedupe"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Skip deduplication step
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 ml-6">
+                Use this to preserve all records including duplicates (useful for debugging file format issues)
               </p>
             </div>
           </div>
