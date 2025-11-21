@@ -125,30 +125,51 @@ export class HCRISProcessor {
   }
 
   private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
-    const baseUrl = 'https://downloads.cms.gov/Files/hcris/';
+    const baseUrlLowercase = 'https://downloads.cms.gov/files/hcris/';
+    const baseUrlUppercase = 'https://downloads.cms.gov/Files/hcris/';
     const urls: Array<{ url: string; filename: string }> = [];
     
     if (year <= 2009) {
-      urls.push({
-        url: `${baseUrl}HOSPFY${year}.zip`,
-        filename: `HOSPFY${year}`,
-      });
+      urls.push(
+        {
+          url: `${baseUrlLowercase}HOSPFY${year}.zip`,
+          filename: `HOSPFY${year}`,
+        },
+        {
+          url: `${baseUrlUppercase}HOSPFY${year}.zip`,
+          filename: `HOSPFY${year}`,
+        }
+      );
     } else if (year === 2010 || year === 2011) {
       urls.push(
         {
-          url: `${baseUrl}HOSP10FY${year}.zip`,
+          url: `${baseUrlLowercase}HOSP10FY${year}.zip`,
           filename: `HOSP10FY${year}`,
         },
         {
-          url: `${baseUrl}HOSPFY${year}.zip`,
+          url: `${baseUrlUppercase}HOSP10FY${year}.zip`,
+          filename: `HOSP10FY${year}`,
+        },
+        {
+          url: `${baseUrlLowercase}HOSPFY${year}.zip`,
+          filename: `HOSPFY${year}`,
+        },
+        {
+          url: `${baseUrlUppercase}HOSPFY${year}.zip`,
           filename: `HOSPFY${year}`,
         }
       );
     } else {
-      urls.push({
-        url: `${baseUrl}HOSP10FY${year}.zip`,
-        filename: `HOSP10FY${year}`,
-      });
+      urls.push(
+        {
+          url: `${baseUrlLowercase}HOSP10FY${year}.zip`,
+          filename: `HOSP10FY${year}`,
+        },
+        {
+          url: `${baseUrlUppercase}HOSP10FY${year}.zip`,
+          filename: `HOSP10FY${year}`,
+        }
+      );
     }
     
     return urls;
