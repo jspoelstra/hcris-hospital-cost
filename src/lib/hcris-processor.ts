@@ -113,15 +113,17 @@ export class HCRISProcessor {
           }
         }
         
-        return allRecords;
-        
       } catch (error) {
         console.warn(`Failed to process ${filename}:`, error);
         continue;
       }
     }
     
-    throw new Error(`Failed to download data for year ${year} - all URL versions returned 404 or failed`);
+    if (allRecords.length === 0) {
+      throw new Error(`Failed to download data for year ${year} - all URL versions returned 404 or failed`);
+    }
+    
+    return allRecords;
   }
 
   private getZipUrlsForYear(year: number): Array<{ url: string; filename: string }> {
