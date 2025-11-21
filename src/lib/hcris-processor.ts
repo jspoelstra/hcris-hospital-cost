@@ -45,8 +45,13 @@ export class HCRISProcessor {
   async downloadYearData(year: number): Promise<HCRISRecord[]> {
     const zipUrls = this.getZipUrlsForYear(year);
     const allRecords: HCRISRecord[] = [];
+    const processedFilenames = new Set<string>();
     
     for (const { url, filename } of zipUrls) {
+      if (processedFilenames.has(filename)) {
+        continue;
+      }
+      
       try {
         const response = await fetch(url);
         
@@ -76,6 +81,8 @@ export class HCRISProcessor {
           skipEmptyLines: true,
           header: false,
         });
+        
+        let recordsFromThisFile = 0;
         
         for (let i = 1; i < parsed.data.length; i++) {
           const row = parsed.data[i];
@@ -108,10 +115,14 @@ export class HCRISProcessor {
               reportYear: fiscalYear,
               sourceFile: filename,
             });
+            recordsFromThisFile++;
           } catch (e) {
             continue;
           }
         }
+        
+        processedFilenames.add(filename);
+        console.log(`Successfully processed ${filename}: ${recordsFromThisFile} records`);
         
       } catch (error) {
         console.warn(`Failed to process ${filename}:`, error);
