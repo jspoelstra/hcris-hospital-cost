@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Eye } from '@phosphor-icons/react';
+import { Eye, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { HCRISRecord } from '@/lib/types';
 
 interface YearSampleViewerProps {
@@ -14,10 +14,42 @@ interface YearSampleViewerProps {
   availableYears: number[];
 }
 
+type SortField = 'providerNumber' | 'providerName' | 'fiscalYearEnd' | 'nprDate' | 'reportYear' | 'sourceFile';
+type SortDirection = 'asc' | 'desc';
+
 export function YearSampleViewer({ onViewSample, availableYears }: YearSampleViewerProps) {
   const [year, setYear] = useState('');
   const [sampleRecords, setSampleRecords] = useState<HCRISRecord[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('providerNumber');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedRecords = useMemo(() => {
+    if (sampleRecords.length === 0) return sampleRecords;
+
+    const sorted = [...sampleRecords].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (aValue === bValue) return 0;
+
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      return sortDirection === 'asc' ? 1 : -1;
+    });
+
+    return sorted;
+  }, [sampleRecords, sortField, sortDirection]);
 
   const handleViewSample = () => {
     const yearNum = parseInt(year);
@@ -49,6 +81,27 @@ export function YearSampleViewer({ onViewSample, availableYears }: YearSampleVie
   };
 
   const isValidYear = year.length === 4 && availableYears.includes(parseInt(year));
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <TableHead 
+      className="font-semibold cursor-pointer hover:bg-muted/50 transition-colors select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <div className="flex flex-col ml-1">
+          <CaretUp 
+            weight={sortField === field && sortDirection === 'asc' ? 'fill' : 'regular'}
+            className={`w-3 h-3 -mb-1 ${sortField === field && sortDirection === 'asc' ? 'text-primary' : 'text-muted-foreground'}`}
+          />
+          <CaretDown 
+            weight={sortField === field && sortDirection === 'desc' ? 'fill' : 'regular'}
+            className={`w-3 h-3 ${sortField === field && sortDirection === 'desc' ? 'text-primary' : 'text-muted-foreground'}`}
+          />
+        </div>
+      </div>
+    </TableHead>
+  );
 
   return (
     <Card className="p-4 md:p-6">
@@ -101,16 +154,16 @@ export function YearSampleViewer({ onViewSample, availableYears }: YearSampleVie
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-semibold">Provider #</TableHead>
-                      <TableHead className="font-semibold">Provider Name</TableHead>
-                      <TableHead className="font-semibold">Fiscal Year End</TableHead>
-                      <TableHead className="font-semibold">NPR Date</TableHead>
-                      <TableHead className="font-semibold">Report Year</TableHead>
-                      <TableHead className="font-semibold">Source File</TableHead>
+                      <SortableHeader field="providerNumber">Provider #</SortableHeader>
+                      <SortableHeader field="providerName">Provider Name</SortableHeader>
+                      <SortableHeader field="fiscalYearEnd">Fiscal Year End</SortableHeader>
+                      <SortableHeader field="nprDate">NPR Date</SortableHeader>
+                      <SortableHeader field="reportYear">Report Year</SortableHeader>
+                      <SortableHeader field="sourceFile">Source File</SortableHeader>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sampleRecords.map((record, idx) => (
+                    {sortedRecords.map((record, idx) => (
                       <TableRow key={idx}>
                         <TableCell className="font-mono">{record.providerNumber}</TableCell>
                         <TableCell className="font-medium">{record.providerName}</TableCell>
