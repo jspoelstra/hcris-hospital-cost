@@ -43,3 +43,9 @@ export interface LogEntry {
 export interface ProviderMapping {
   [providerNumber: string]: string;
 }
+
+export interface ProviderGroup {
+  id: string;
+  name: string;
+  providerNumbers: string[];
+}
